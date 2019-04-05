@@ -3011,8 +3011,9 @@ Model LoadIQM(const char *fileName)
     model.meshCount = iqm.num_meshes;
     model.meshes = malloc(sizeof(Mesh)*model.meshCount);
 // 1 material per mesh
- //   model.materialCount = iqm.num_meshes;
-  //  model.materials = malloc(sizeof(Material)*model.materialCount);
+    model.materialCount = iqm.num_meshes;
+    model.materials = malloc(sizeof(Material)*model.materialCount);
+    model.meshMaterial = malloc(sizeof(int)*model.materialCount);
     
 // Read all text data into a single buffer
     char *buff = malloc(sizeof(char)*iqm.num_text);
@@ -3021,7 +3022,12 @@ Model LoadIQM(const char *fileName)
 
     for (int i = 0; i < iqm.num_meshes; i++)
     {
-//        model.materials[i] = LoadMaterial(&buff[imesh[i].material]);
+printf("\n\nMATS\n\n");
+        model.materials[i] = LoadMaterialDefault();
+        model.materials[i].maps[MAP_DIFFUSE].texture = LoadTexture(&buff[imesh[i].material]);
+        model.meshMaterial[i] = i;
+printf("\n\nMATS\n\n");
+
         Mesh mesh = {0};
 //        fseek(iqmFile,iqm.ofs_text+imesh[i].name,SEEK_SET);
 //        fread(buff, sizeof(char)*BUFF_LENGTH, 1, iqmFile);     // Mesh name not used...
