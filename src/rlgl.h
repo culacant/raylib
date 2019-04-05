@@ -207,8 +207,8 @@ typedef unsigned char byte;
         // Animation vertex data
         float *animVertices;    // Animated vertex positions (after bones transformations)
         float *animNormals;     // Animated normals (after bones transformations)
-        float *weightBias;      // Vertex weight bias
-        int *weightId;          // Vertex weight id
+        int *boneIds;           // Vertex bone ids, up to 4 bones influence by vertex (skinning)
+        float *boneWeights;     // Vertex bone weight, up to 4 bones influence by vertex (skinning)
 
         // OpenGL identifiers
         unsigned int vaoId;     // OpenGL Vertex Array Object id
@@ -456,6 +456,7 @@ void rlDeleteBuffers(unsigned int id);                  // Unload vertex data (V
 void rlClearColor(byte r, byte g, byte b, byte a);      // Clear color buffer with color
 void rlClearScreenBuffers(void);                        // Clear used screen buffers (color and depth)
 void rlUpdateBuffer(int bufferId, void *data, int dataSize); // Update GPU buffer with new data
+unsigned int rlLoadAttribBuffer(unsigned int vaoId, int shaderLoc, void *buffer, int size, bool dynamic);   // Load a new attributes buffer
 
 //------------------------------------------------------------------------------------
 // Functions Declaration - rlgl functionality
@@ -2532,6 +2533,29 @@ void rlLoadMesh(Mesh *mesh, bool dynamic)
 #endif
 }
 
+// Load a new attributes buffer
+unsigned int rlLoadAttribBuffer(unsigned int vaoId, int shaderLoc, void *buffer, int size, bool dynamic)
+{
+    unsigned int id = 0;
+    
+#if defined(GRAPHICS_API_OPENGL_33) || defined(GRAPHICS_API_OPENGL_ES2)
+    int drawHint = GL_STATIC_DRAW;
+    if (dynamic) drawHint = GL_DYNAMIC_DRAW;
+    
+    if (vaoSupported) glBindVertexArray(vaoId);
+    
+    glGenBuffers(1, &id);
+    glBindBuffer(GL_ARRAY_BUFFER, id);
+    glBufferData(GL_ARRAY_BUFFER, size, buffer, drawHint);
+    glVertexAttribPointer(shaderLoc, 2, GL_FLOAT, 0, 0, 0);
+    glEnableVertexAttribArray(shaderLoc);
+    
+    if (vaoSupported) glBindVertexArray(0);
+#endif
+
+    return id;
+}
+
 // Update vertex data on GPU (upload new data to one buffer)
 void rlUpdateMesh(Mesh mesh, int buffer, int numVertex)
 {
@@ -3140,6 +3164,18 @@ void SetShaderValueMatrix(Shader shader, int uniformLoc, Matrix mat)
     glUseProgram(shader.id);
 
     glUniformMatrix4fv(uniformLoc, 1, false, MatrixToFloat(mat));
+
+    //glUseProgram(0);
+#endif
+}
+
+// Set shader uniform value for texture
+void SetShaderValueTexture(Shader shader, int uniformLoc, Texture2D texture)
+{
+#if defined(GRAPHICS_API_OPENGL_33) || defined(GRAPHICS_API_OPENGL_ES2)
+    glUseProgram(shader.id);
+
+    glUniform1i(uniformLoc, texture.id);
 
     //glUseProgram(0);
 #endif
