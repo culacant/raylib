@@ -86,13 +86,13 @@
 // Module specific Functions Declaration
 //----------------------------------------------------------------------------------
 #if defined(SUPPORT_FILEFORMAT_OBJ)
-static Model LoadOBJ(const char *fileName);     // Load OBJ mesh data
+Model LoadOBJ(const char *fileName);     // Load OBJ mesh data
 #endif
 #if defined(SUPPORT_FILEFORMAT_GLTF)
-static Model LoadIQM(const char *fileName);     // Load IQM mesh data
+Model LoadIQM(const char *fileName);     // Load IQM mesh data
 #endif
 #if defined(SUPPORT_FILEFORMAT_GLTF)
-static Model LoadGLTF(const char *fileName);    // Load GLTF mesh data
+Model LoadGLTF(const char *fileName);    // Load GLTF mesh data
 #endif
 
 //----------------------------------------------------------------------------------
@@ -2368,7 +2368,7 @@ void MeshBinormals(Mesh *mesh)
 
 #if defined(SUPPORT_FILEFORMAT_OBJ)
 // Load OBJ mesh data
-static Model LoadOBJ(const char *fileName)
+Model LoadOBJ(const char *fileName)
 {
     Model model = { 0 };
 
@@ -2540,13 +2540,12 @@ static Model LoadOBJ(const char *fileName)
 
 #if defined(SUPPORT_FILEFORMAT_IQM)
 // Load IQM mesh data
-static Model LoadIQM(const char *fileName)
+Model LoadIQM(const char *fileName)
 {
     #define IQM_MAGIC       "INTERQUAKEMODEL"   // IQM file magic number
     #define IQM_VERSION     2                   // only IQM version 2 supported
 
-    #define BONE_NAME_LENGTH    32          // BoneInfo name string length
-    #define MESH_NAME_LENGTH    32          // Mesh name string length
+    #define BUFF_LENGTH    32                   // Buffer length for text data
 
     // IQM file structs
     //-----------------------------------------------------------------------------------
@@ -2676,30 +2675,39 @@ static Model LoadIQM(const char *fileName)
     fread(imesh, sizeof(IQMMesh)*iqm.num_meshes, 1, iqmFile);
 
     model.meshCount = iqm.num_meshes;
-    model.meshes = malloc(sizeof(Mesh)*iqm.num_meshes);
-
-    char name[MESH_NAME_LENGTH];
+    model.meshes = malloc(sizeof(Mesh)*model.meshCount);
+// 1 material per mesh
+ //   model.materialCount = iqm.num_meshes;
+  //  model.materials = malloc(sizeof(Material)*model.materialCount);
+    
+// Read all text data into a single buffer
+    char *buff = malloc(sizeof(char)*iqm.num_text);
+    fseek(iqmFile, iqm.ofs_text, SEEK_SET);
+    fread(buff, sizeof(char)*iqm.num_text, 1, iqmFile);
 
     for (int i = 0; i < iqm.num_meshes; i++)
     {
-        fseek(iqmFile,iqm.ofs_text+imesh[i].name,SEEK_SET);
-        fread(name, sizeof(char)*MESH_NAME_LENGTH, 1, iqmFile);     // Mesh name not used...
-        model.meshes[i].vertexCount = imesh[i].num_vertexes;
+//        model.materials[i] = LoadMaterial(&buff[imesh[i].material]);
+        Mesh mesh = {0};
+//        fseek(iqmFile,iqm.ofs_text+imesh[i].name,SEEK_SET);
+//        fread(buff, sizeof(char)*BUFF_LENGTH, 1, iqmFile);     // Mesh name not used...
+        mesh.vertexCount = imesh[i].num_vertexes;
 
-        model.meshes[i].vertices = malloc(sizeof(float)*imesh[i].num_vertexes*3);       // Default vertex positions
-        model.meshes[i].normals = malloc(sizeof(float)*imesh[i].num_vertexes*3);        // Default vertex normals
-        model.meshes[i].texcoords = malloc(sizeof(float)*imesh[i].num_vertexes*2);      // Default vertex texcoords
+        mesh.vertices = malloc(sizeof(float)*imesh[i].num_vertexes*3);       // Default vertex positions
+        mesh.normals = malloc(sizeof(float)*imesh[i].num_vertexes*3);        // Default vertex normals
+        mesh.texcoords = malloc(sizeof(float)*imesh[i].num_vertexes*2);      // Default vertex texcoords
 
-        model.meshes[i].boneIds = malloc(sizeof(int)*imesh[i].num_vertexes*4);          // Up-to 4 bones supported!
-        model.meshes[i].boneWeights = malloc(sizeof(float)*imesh[i].num_vertexes*4);    // Up-to 4 bones supported!
+        mesh.boneIds = malloc(sizeof(int)*imesh[i].num_vertexes*4);          // Up-to 4 bones supported!
+        mesh.boneWeights = malloc(sizeof(float)*imesh[i].num_vertexes*4);    // Up-to 4 bones supported!
 
-        model.meshes[i].triangleCount = imesh[i].num_triangles;
-        model.meshes[i].indices = malloc(sizeof(unsigned short)*imesh[i].num_triangles*3);
+        mesh.triangleCount = imesh[i].num_triangles;
+        mesh.indices = malloc(sizeof(unsigned short)*imesh[i].num_triangles*3);
 
         // Animated verted data, what we actually process for rendering
         // NOTE: Animated vertex should be re-uploaded to GPU (if not using GPU skinning)
-        model.meshes[i].animVertices = malloc(sizeof(float)*imesh[i].num_vertexes*3);
-        model.meshes[i].animNormals = malloc(sizeof(float)*imesh[i].num_vertexes*3);
+        mesh.animVertices = malloc(sizeof(float)*imesh[i].num_vertexes*3);
+        mesh.animNormals = malloc(sizeof(float)*imesh[i].num_vertexes*3);
+        model.meshes[i] = mesh;
     }
 
     // Triangles data processing
@@ -2829,7 +2837,7 @@ static Model LoadIQM(const char *fileName)
         // Bones
         model.bones[i].parent = ijoint[i].parent;
         fseek(iqmFile, iqm.ofs_text + ijoint[i].name, SEEK_SET);
-        fread(model.bones[i].name,sizeof(char)*BONE_NAME_LENGTH, 1, iqmFile);
+        fread(model.bones[i].name,sizeof(char)*BUFF_LENGTH, 1, iqmFile);
 
         // Bind pose (base pose)
         model.bindPose[i].translation.x = ijoint[i].translate[0];
@@ -2875,7 +2883,7 @@ static Model LoadIQM(const char *fileName)
 
 #if defined(SUPPORT_FILEFORMAT_GLTF)
 // Load glTF mesh data
-static Model LoadGLTF(const char *fileName)
+Model LoadGLTF(const char *fileName)
 {
     Model model = { 0 };
 

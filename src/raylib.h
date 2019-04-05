@@ -1255,6 +1255,11 @@ RLAPI void DrawGizmo(Vector3 position);                                         
 
 // Model loading/unloading functions
 RLAPI Model LoadModel(const char *fileName);                                                            // Load model from files (meshes and materials)
+RLAPI Model LoadModel(const char *fileName);                                                            // Load model from files (meshes and materials)
+RLAPI Model LoadOBJ(const char *fileName);
+RLAPI Model LoadIQM(const char *fileName); // Load IQM mesh data
+RLAPI Model LoadGLTF(const char *fileName); // Load IQM mesh data
+
 RLAPI Model LoadModelFromMesh(Mesh mesh);                                                               // Load model from generated mesh
 //RLAPI void LoadModelAnimations(const char fileName, ModelAnimation *anims, int *animsCount);            // Load model animations from file
 //RLAPI void UpdateModelAnimation(Model model, ModelAnimation anim, int frame);                           // Update model animation pose
