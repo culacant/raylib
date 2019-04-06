@@ -314,8 +314,7 @@ typedef struct Mesh {
 
     // OpenGL identifiers
     unsigned int vaoId;     // OpenGL Vertex Array Object id
-// CULACANT
-    unsigned int vboId[9];  // OpenGL Vertex Buffer Objects id (default vertex data)
+    unsigned int vboId[7];  // OpenGL Vertex Buffer Objects id (default vertex data)
 } Mesh;
 
 // Shader type (generic)
@@ -726,9 +725,6 @@ typedef enum {
 
 #define LOC_MAP_DIFFUSE      LOC_MAP_ALBEDO
 #define LOC_MAP_SPECULAR     LOC_MAP_METALNESS
-// CULACANT
-#define LOC_VERTEX_WEIGHT   7
-#define LOC_VERTEX_BONE     8
 
 // Shader uniform data types
 typedef enum {
