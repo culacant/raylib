@@ -212,7 +212,8 @@ typedef unsigned char byte;
 
         // OpenGL identifiers
         unsigned int vaoId;     // OpenGL Vertex Array Object id
-        unsigned int vboId[7];  // OpenGL Vertex Buffer Objects id (7 types of vertex data)
+// CULACANT
+        unsigned int vboId[9];  // OpenGL Vertex Buffer Objects id (7 types of vertex data)
     } Mesh;
 
     // Shader and material limits
@@ -356,6 +357,9 @@ typedef unsigned char byte;
         LOC_MAP_PREFILTER,
         LOC_MAP_BRDF
     } ShaderLocationIndex;
+// CULACANT
+#define LOC_VERTEX_WEIGHT   7
+#define LOC_VERTEX_BONE     8
 
     // Shader uniform data types
     typedef enum {
@@ -703,6 +707,9 @@ int GetPixelDataSize(int width, int height, int format);// Get pixel data size i
 #define DEFAULT_ATTRIB_COLOR_NAME       "vertexColor"       // shader-location = 3
 #define DEFAULT_ATTRIB_TANGENT_NAME     "vertexTangent"     // shader-location = 4
 #define DEFAULT_ATTRIB_TEXCOORD2_NAME   "vertexTexCoord2"   // shader-location = 5
+// CULACANT
+#define DEFAULT_ATTRIB_BONE_NAME   "vertexBone"        // shader-location = 7
+#define DEFAULT_ATTRIB_WEIGHT_NAME   "vertexWeight"      // shader-location = 8
 
 //----------------------------------------------------------------------------------
 // Types and Structures Definition
@@ -2422,6 +2429,9 @@ void rlLoadMesh(Mesh *mesh, bool dynamic)
     mesh->vboId[4] = 0;     // Vertex tangents VBO
     mesh->vboId[5] = 0;     // Vertex texcoords2 VBO
     mesh->vboId[6] = 0;     // Vertex indices VBO
+// CULACANT
+    mesh->vboId[LOC_VERTEX_WEIGHT]  = 0;     // Vertex weight VBO
+    mesh->vboId[LOC_VERTEX_BONE]    = 0;     // Vertex bone VBO
 
 #if defined(GRAPHICS_API_OPENGL_33) || defined(GRAPHICS_API_OPENGL_ES2)
     int drawHint = GL_STATIC_DRAW;
@@ -2519,6 +2529,21 @@ void rlLoadMesh(Mesh *mesh, bool dynamic)
         glGenBuffers(1, &mesh->vboId[6]);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->vboId[6]);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned short)*mesh->triangleCount*3, mesh->indices, GL_STATIC_DRAW);
+    }
+// CULACANT
+    if (mesh->boneWeights != NULL)
+    {
+        glGenBuffers(1, &mesh->vboId[LOC_VERTEX_WEIGHT]);
+        glBindBuffer(GL_ARRAY_BUFFER, mesh->vboId[LOC_VERTEX_WEIGHT]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(float)*4*mesh->vertexCount, mesh->boneWeights, drawHint);
+        glVertexAttribPointer(LOC_VERTEX_WEIGHT, 4, GL_FLOAT, 0, 0, 0);
+        glEnableVertexAttribArray(LOC_VERTEX_WEIGHT);
+
+        glGenBuffers(1, &mesh->vboId[LOC_VERTEX_BONE]);
+        glBindBuffer(GL_ARRAY_BUFFER, mesh->vboId[LOC_VERTEX_BONE]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(int)*4*mesh->vertexCount, mesh->boneIds, drawHint);
+        glVertexAttribPointer(LOC_VERTEX_BONE, 4, GL_FLOAT, 0, 0, 0);
+        glEnableVertexAttribArray(LOC_VERTEX_BONE);
     }
 
     if (vaoSupported)
@@ -2832,6 +2857,9 @@ void rlUnloadMesh(Mesh *mesh)
     rlDeleteBuffers(mesh->vboId[4]);   // tangents
     rlDeleteBuffers(mesh->vboId[5]);   // texcoords2
     rlDeleteBuffers(mesh->vboId[6]);   // indices
+// CULACANT
+    rlDeleteBuffers(mesh->vboId[LOC_VERTEX_BONE]);      // bones
+    rlDeleteBuffers(mesh->vboId[LOC_VERTEX_WEIGHT]);    // weights
 
     rlDeleteVertexArrays(mesh->vaoId);
 }
@@ -3882,6 +3910,9 @@ static unsigned int LoadShaderProgram(unsigned int vShaderId, unsigned int fShad
     glBindAttribLocation(program, 3, DEFAULT_ATTRIB_COLOR_NAME);
     glBindAttribLocation(program, 4, DEFAULT_ATTRIB_TANGENT_NAME);
     glBindAttribLocation(program, 5, DEFAULT_ATTRIB_TEXCOORD2_NAME);
+// CULACANT
+    glBindAttribLocation(program, 7, DEFAULT_ATTRIB_BONE_NAME);
+    glBindAttribLocation(program, 8, DEFAULT_ATTRIB_WEIGHT_NAME);
 
     // NOTE: If some attrib name is no found on the shader, it locations becomes -1
 
@@ -4049,6 +4080,9 @@ static void SetShaderDefaultLocations(Shader *shader)
     shader->locs[LOC_MAP_DIFFUSE] = glGetUniformLocation(shader->id, "texture0");
     shader->locs[LOC_MAP_SPECULAR] = glGetUniformLocation(shader->id, "texture1");
     shader->locs[LOC_MAP_NORMAL] = glGetUniformLocation(shader->id, "texture2");
+// CULACANT
+    shader->locs[LOC_VERTEX_BONE] = glGetAttribLocation(shader->id, DEFAULT_ATTRIB_BONE_NAME);
+    shader->locs[LOC_VERTEX_WEIGHT] = glGetAttribLocation(shader->id, DEFAULT_ATTRIB_WEIGHT_NAME);
 }
 
 // Unload default shader
