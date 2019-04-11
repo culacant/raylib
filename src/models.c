@@ -17,7 +17,7 @@
 *
 *   LICENSE: zlib/libpng
 *
-*   Copyright (c) 2014-2018 Ramon Santamaria (@raysan5)
+*   Copyright (c) 2013-2019 Ramon Santamaria (@raysan5)
 *
 *   This software is provided "as-is", without any express or implied warranty. In no event
 *   will the authors be held liable for any damages arising from the use of this software.
@@ -98,6 +98,62 @@ Model LoadGLTF(const char *fileName);    // Load GLTF mesh data
 //----------------------------------------------------------------------------------
 // Module Functions Definition
 //----------------------------------------------------------------------------------
+Matrix MatrixFromTransform(Transform transform)
+{
+    Matrix result = {0};
+    float x2 = transform.rotation.x+transform.rotation.x;
+    float y2 = transform.rotation.y+transform.rotation.y;
+    float z2 = transform.rotation.z+transform.rotation.z;
+
+    float xx2 = transform.rotation.x*x2;
+    float yy2 = transform.rotation.y*y2;
+    float zz2 = transform.rotation.z*z2;
+
+    float yz2 = transform.rotation.y*z2;
+    float wx2 = transform.rotation.w*x2;
+
+    float xy2 = transform.rotation.x*y2;
+    float wz2 = transform.rotation.w*z2;
+
+    float xz2 = transform.rotation.x*z2;
+    float wy2 = transform.rotation.w*y2;
+
+    result.m0   = 1 - yy2 - zz2;
+    result.m5   = 1 - xx2 - zz2;
+    result.m10  = 1 - xx2 - yy2;
+
+    result.m6   = yz2 + wx2;
+    result.m9   = yz2 - wx2;
+
+    result.m1   = xy2 + wz2;
+    result.m4   = xy2 - wz2;
+
+    result.m8   = xz2 + wy2;
+    result.m2   = xz2 - wy2;
+
+    result.m0   *=  transform.scale.x;
+    result.m1   *=  transform.scale.x;
+    result.m3   *=  transform.scale.x;
+
+    result.m4   *=  transform.scale.y;
+    result.m5   *=  transform.scale.y;
+    result.m6   *=  transform.scale.y;
+
+    result.m8   *=  transform.scale.z;
+    result.m9   *=  transform.scale.z;
+    result.m10  *=  transform.scale.z;
+
+    result.m12  = transform.translation.x;
+    result.m13  = transform.translation.y;
+    result.m14  = transform.translation.z;
+
+    result.m3   = 0.0f;
+    result.m7   = 0.0f;
+    result.m11  = 0.0f;
+    result.m15  = 1.0f;
+
+    return result;
+}
 
 // Draw a line in 3D world space
 void DrawLine3D(Vector3 startPos, Vector3 endPos, Color color)
@@ -943,8 +999,14 @@ ModelAnimation *LoadModelAnimations(const char *filename, int *animCount)
     fseek(iqmFile, iqm.ofs_frames, SEEK_SET);
     fread(framedata, sizeof(unsigned short)*iqm.num_frames*iqm.num_framechannels, 1, iqmFile);
 
-    animation.framePoses = malloc(sizeof(Transform*)*anim.num_frames);
-    for (int j = 0; j < anim.num_frames; j++) animation.framePoses[j] = malloc(sizeof(Transform)*iqm.num_poses);
+    Transform **transformData = malloc(sizeof(Transform*)*anim.num_frames);
+    animation.framePoses = malloc(sizeof(Matrix*)*anim.num_frames);
+
+    for (int j = 0; j < anim.num_frames; j++) 
+    {
+        transformData[j] = malloc(sizeof(Transform)*iqm.num_poses);
+        animation.framePoses[j] = malloc(sizeof(Matrix)*iqm.num_poses);
+    }
 
     int dcounter = anim.first_frame*iqm.num_framechannels;
 
@@ -952,89 +1014,91 @@ ModelAnimation *LoadModelAnimations(const char *filename, int *animCount)
     {
         for (int i = 0; i < iqm.num_poses; i++)
         {
-            animation.framePoses[frame][i].translation.x = poses[i].channeloffset[0];
+            transformData[frame][i].translation.x = poses[i].channeloffset[0];
 
             if (poses[i].mask & 0x01)
             {
-                animation.framePoses[frame][i].translation.x += framedata[dcounter]*poses[i].channelscale[0];
+                transformData[frame][i].translation.x += framedata[dcounter]*poses[i].channelscale[0];
                 dcounter++;
             }
 
-            animation.framePoses[frame][i].translation.y = poses[i].channeloffset[1];
+            transformData[frame][i].translation.y = poses[i].channeloffset[1];
 
             if (poses[i].mask & 0x02)
             {
-                animation.framePoses[frame][i].translation.y += framedata[dcounter]*poses[i].channelscale[1];
+                transformData[frame][i].translation.y += framedata[dcounter]*poses[i].channelscale[1];
                 dcounter++;
             }
 
-            animation.framePoses[frame][i].translation.z = poses[i].channeloffset[2];
+            transformData[frame][i].translation.z = poses[i].channeloffset[2];
 
             if (poses[i].mask & 0x04)
             {
-                animation.framePoses[frame][i].translation.z += framedata[dcounter]*poses[i].channelscale[2];
+                transformData[frame][i].translation.z += framedata[dcounter]*poses[i].channelscale[2];
                 dcounter++;
             }
 
-            animation.framePoses[frame][i].rotation.x = poses[i].channeloffset[3];
+            transformData[frame][i].rotation.x = poses[i].channeloffset[3];
 
             if (poses[i].mask & 0x08)
             {
-                animation.framePoses[frame][i].rotation.x += framedata[dcounter]*poses[i].channelscale[3];
+                transformData[frame][i].rotation.x += framedata[dcounter]*poses[i].channelscale[3];
                 dcounter++;
             }
 
-            animation.framePoses[frame][i].rotation.y = poses[i].channeloffset[4];
+            transformData[frame][i].rotation.y = poses[i].channeloffset[4];
 
             if (poses[i].mask & 0x10)
             {
-                animation.framePoses[frame][i].rotation.y += framedata[dcounter]*poses[i].channelscale[4];
+                transformData[frame][i].rotation.y += framedata[dcounter]*poses[i].channelscale[4];
                 dcounter++;
             }
 
-            animation.framePoses[frame][i].rotation.z = poses[i].channeloffset[5];
+            transformData[frame][i].rotation.z = poses[i].channeloffset[5];
 
             if (poses[i].mask & 0x20)
             {
-                animation.framePoses[frame][i].rotation.z += framedata[dcounter]*poses[i].channelscale[5];
+                transformData[frame][i].rotation.z += framedata[dcounter]*poses[i].channelscale[5];
                 dcounter++;
             }
 
-            animation.framePoses[frame][i].rotation.w = poses[i].channeloffset[6];
+            transformData[frame][i].rotation.w = poses[i].channeloffset[6];
 
             if (poses[i].mask & 0x40)
             {
-                animation.framePoses[frame][i].rotation.w += framedata[dcounter]*poses[i].channelscale[6];
+                transformData[frame][i].rotation.w += framedata[dcounter]*poses[i].channelscale[6];
                 dcounter++;
             }
 
-            animation.framePoses[frame][i].scale.x = poses[i].channeloffset[7];
+            transformData[frame][i].scale.x = poses[i].channeloffset[7];
 
             if (poses[i].mask & 0x80)
             {
-                animation.framePoses[frame][i].scale.x += framedata[dcounter]*poses[i].channelscale[7];
+                transformData[frame][i].scale.x += framedata[dcounter]*poses[i].channelscale[7];
                 dcounter++;
             }
 
-            animation.framePoses[frame][i].scale.y = poses[i].channeloffset[8];
+            transformData[frame][i].scale.y = poses[i].channeloffset[8];
 
             if (poses[i].mask & 0x100)
             {
-                animation.framePoses[frame][i].scale.y += framedata[dcounter]*poses[i].channelscale[8];
+                transformData[frame][i].scale.y += framedata[dcounter]*poses[i].channelscale[8];
                 dcounter++;
             }
 
-            animation.framePoses[frame][i].scale.z = poses[i].channeloffset[9];
+            transformData[frame][i].scale.z = poses[i].channeloffset[9];
 
             if (poses[i].mask & 0x200)
             {
-                animation.framePoses[frame][i].scale.z += framedata[dcounter]*poses[i].channelscale[9];
+                transformData[frame][i].scale.z += framedata[dcounter]*poses[i].channelscale[9];
                 dcounter++;
             }
 
-            animation.framePoses[frame][i].rotation = QuaternionNormalize(animation.framePoses[frame][i].rotation);
+            transformData[frame][i].rotation = QuaternionNormalize(transformData[frame][i].rotation);
+            animation.framePoses[frame][i] = MatrixFromTransform(transformData[frame][i]);
         }
     }
+
 
     // Build frameposes
     for (int frame = 0; frame < anim.num_frames; frame++)
@@ -1043,16 +1107,15 @@ ModelAnimation *LoadModelAnimations(const char *filename, int *animCount)
         {
             if (animation.bones[i].parent >= 0)
             {
-                animation.framePoses[frame][i].rotation = QuaternionMultiply(animation.framePoses[frame][animation.bones[i].parent].rotation, animation.framePoses[frame][i].rotation);
-                animation.framePoses[frame][i].translation = Vector3RotateByQuaternion(animation.framePoses[frame][i].translation, animation.framePoses[frame][animation.bones[i].parent].rotation);
-                animation.framePoses[frame][i].translation = Vector3Add(animation.framePoses[frame][i].translation, animation.framePoses[frame][animation.bones[i].parent].translation);
-                animation.framePoses[frame][i].scale = Vector3MultiplyV(animation.framePoses[frame][i].scale, animation.framePoses[frame][animation.bones[i].parent].scale);
+                animation.framePoses[frame][i] = MatrixMultiply(animation.framePoses[frame][i],animation.framePoses[frame][animation.bones[i].parent]);
             }
         }
     }
 
     free(framedata);
     free(poses);
+    for (int j = 0; j < anim.num_frames; j++) free(transformData[j]);
+    free(transformData);
     
     fclose(iqmFile);
 
@@ -1073,13 +1136,8 @@ void UpdateModelAnimation(Model model, ModelAnimation anim, int frame)
         Vector3 animVertex = { 0 };
         Vector3 animNormal = { 0 };
 
-        Vector3 inTranslation = { 0 };
-        Quaternion inRotation = { 0 };
-        Vector3 inScale = { 0 };
-
-        Vector3 outTranslation = { 0 };
-        Quaternion outRotation = { 0 };
-        Vector3 outScale = { 0 };
+        Matrix inMatrix = { 0 };
+        Matrix outMatrix = { 0 };
 
         int vCounter = 0;
         int boneCounter = 0;
@@ -1101,20 +1159,20 @@ void UpdateModelAnimation(Model model, ModelAnimation anim, int frame)
                 weight = model.meshes[m].boneWeights[boneCounter+w];
                 if(weight > 0.0f)
                 {
-                    inTranslation = model.bindPose[boneId].translation;
-                    inRotation = model.bindPose[boneId].rotation;
-                    inScale = model.bindPose[boneId].scale;
-                    outTranslation = anim.framePoses[frame][boneId].translation;
-                    outRotation = anim.framePoses[frame][boneId].rotation;
-                    outScale = anim.framePoses[frame][boneId].scale;
+                    inMatrix = model.bindPose[boneId];
+                    outMatrix = anim.framePoses[frame][boneId];
+                    outMatrix = MatrixMultiply(outMatrix,MatrixInvert(inMatrix));
 
                     // Vertices processing
                     // NOTE: We use meshes.vertices (default vertex position) to calculate meshes.animVertices (animated vertex position)
                     animVertex = (Vector3){ model.meshes[m].vertices[vCounter], model.meshes[m].vertices[vCounter + 1], model.meshes[m].vertices[vCounter + 2] };
+/*
                     animVertex = Vector3MultiplyV(animVertex, outScale);
                     animVertex = Vector3Subtract(animVertex, inTranslation);
                     animVertex = Vector3RotateByQuaternion(animVertex, QuaternionMultiply(outRotation, QuaternionInvert(inRotation)));
                     animVertex = Vector3Add(animVertex, outTranslation);
+*/
+                    animVertex = Vector3Transform(animVertex, outMatrix);
 
                     model.meshes[m].animVertices[vCounter] += animVertex.x*weight;
                     model.meshes[m].animVertices[vCounter + 1] += animVertex.y*weight;
@@ -1123,7 +1181,11 @@ void UpdateModelAnimation(Model model, ModelAnimation anim, int frame)
                     // Normals processing
                     // NOTE: We use meshes.baseNormals (default normal) to calculate meshes.normals (animated normals)
                     animNormal = (Vector3){ model.meshes[m].normals[vCounter], model.meshes[m].normals[vCounter + 1], model.meshes[m].normals[vCounter + 2] };
+/*
                     animNormal = Vector3RotateByQuaternion(animNormal, QuaternionMultiply(outRotation, QuaternionInvert(inRotation)));
+*/
+                    animNormal = Vector3Transform(animNormal, inMatrix);
+
                     model.meshes[m].animNormals[vCounter] += animNormal.x*weight;
                     model.meshes[m].animNormals[vCounter + 1] += animNormal.y*weight;
                     model.meshes[m].animNormals[vCounter + 2] += animNormal.z*weight;
@@ -2862,21 +2924,23 @@ Model LoadOBJ(const char *fileName)
             } tinyobj_material_t;
             */
 
-            model.materials[m].maps[MAP_DIFFUSE].texture = LoadTexture(materials[m].diffuse_texname);  //char *diffuse_texname; // map_Kd
+            model.materials[m].maps[MAP_DIFFUSE].texture = GetTextureDefault();     // Get default texture, in case no texture is defined
+            
+            if (materials[m].diffuse_texname != NULL) model.materials[m].maps[MAP_DIFFUSE].texture = LoadTexture(materials[m].diffuse_texname);  //char *diffuse_texname; // map_Kd
             model.materials[m].maps[MAP_DIFFUSE].color = (Color){ (float)(materials[m].diffuse[0]*255.0f), (float)(materials[m].diffuse[1]*255.0f), (float)(materials[m].diffuse[2]*255.0f), 255 }; //float diffuse[3];
             model.materials[m].maps[MAP_DIFFUSE].value = 0.0f;
 
-            model.materials[m].maps[MAP_SPECULAR].texture = LoadTexture(materials[m].specular_texname);  //char *specular_texname; // map_Ks
+            if (materials[m].specular_texname != NULL) model.materials[m].maps[MAP_SPECULAR].texture = LoadTexture(materials[m].specular_texname);  //char *specular_texname; // map_Ks
             model.materials[m].maps[MAP_SPECULAR].color = (Color){ (float)(materials[m].specular[0]*255.0f), (float)(materials[m].specular[1]*255.0f), (float)(materials[m].specular[2]*255.0f), 255 }; //float specular[3];
             model.materials[m].maps[MAP_SPECULAR].value = 0.0f;
 
-            model.materials[m].maps[MAP_NORMAL].texture = LoadTexture(materials[m].bump_texname);  //char *bump_texname; // map_bump, bump
+            if (materials[m].bump_texname != NULL) model.materials[m].maps[MAP_NORMAL].texture = LoadTexture(materials[m].bump_texname);  //char *bump_texname; // map_bump, bump
             model.materials[m].maps[MAP_NORMAL].color = WHITE;
             model.materials[m].maps[MAP_NORMAL].value = materials[m].shininess;
 
             model.materials[m].maps[MAP_EMISSION].color = (Color){ (float)(materials[m].emission[0]*255.0f), (float)(materials[m].emission[1]*255.0f), (float)(materials[m].emission[2]*255.0f), 255 }; //float emission[3];
 
-            model.materials[m].maps[MAP_HEIGHT].texture = LoadTexture(materials[m].displacement_texname);  //char *displacement_texname; // disp
+            if (materials[m].displacement_texname != NULL) model.materials[m].maps[MAP_HEIGHT].texture = LoadTexture(materials[m].displacement_texname);  //char *displacement_texname; // disp
         }
 
         tinyobj_attrib_free(&attrib);
@@ -3039,7 +3103,7 @@ Model LoadIQM(const char *fileName)
     fseek(iqmFile, iqm.ofs_text, SEEK_SET);
     fread(buff, sizeof(char)*iqm.num_text, 1, iqmFile);
 
-    for (int i = 0; i < iqm.num_meshes; i++)
+    for (int i = 0; i < model.meshCount; i++)
     {
 // Load materials from the filename in the text buffer
         model.materials[i] = LoadMaterialDefault();
@@ -3074,15 +3138,15 @@ Model LoadIQM(const char *fileName)
     fseek(iqmFile, iqm.ofs_triangles, SEEK_SET);
     fread(tri, sizeof(IQMTriangle)*iqm.num_triangles, 1, iqmFile);
 
-    for (int m = 0; m < iqm.num_meshes; m++)
+    for (int m = 0; m < model.meshCount; m++)
     {
         int tcounter = 0;
 
-        for (int i = imesh[m].first_triangle; i < imesh[m].first_triangle+imesh[m].num_triangles; i++)
+        for (int i = imesh[m].first_triangle; i < (imesh[m].first_triangle + imesh[m].num_triangles); i++)
         {
             // IQM triangles are stored counter clockwise, but raylib sets opengl to clockwise drawing, so we swap them around
-            model.meshes[m].indices[tcounter+2] = tri[i].vertex[0] - imesh[m].first_vertex;
-            model.meshes[m].indices[tcounter+1] = tri[i].vertex[1] - imesh[m].first_vertex;
+            model.meshes[m].indices[tcounter + 2] = tri[i].vertex[0] - imesh[m].first_vertex;
+            model.meshes[m].indices[tcounter + 1] = tri[i].vertex[1] - imesh[m].first_vertex;
             model.meshes[m].indices[tcounter] = tri[i].vertex[2] - imesh[m].first_vertex;
             tcounter += 3;
         }
@@ -3189,7 +3253,8 @@ Model LoadIQM(const char *fileName)
 
     model.boneCount = iqm.num_joints;
     model.bones = malloc(sizeof(BoneInfo)*iqm.num_joints);
-    model.bindPose = malloc(sizeof(Transform)*iqm.num_joints);
+    Transform *transformData = malloc(sizeof(Transform)*iqm.num_joints);
+    model.bindPose = malloc(sizeof(Matrix )*iqm.num_joints);
 
     for (int i = 0; i < iqm.num_joints; i++)
     {
@@ -3199,18 +3264,21 @@ Model LoadIQM(const char *fileName)
         fread(model.bones[i].name,sizeof(char)*BUFF_LENGTH, 1, iqmFile);
 
         // Bind pose (base pose)
-        model.bindPose[i].translation.x = ijoint[i].translate[0];
-        model.bindPose[i].translation.y = ijoint[i].translate[1];
-        model.bindPose[i].translation.z = ijoint[i].translate[2];
+        transformData[i].translation.x = ijoint[i].translate[0];
+        transformData[i].translation.y = ijoint[i].translate[1];
+        transformData[i].translation.z = ijoint[i].translate[2];
 
-        model.bindPose[i].rotation.x = ijoint[i].rotate[0];
-        model.bindPose[i].rotation.y = ijoint[i].rotate[1];
-        model.bindPose[i].rotation.z = ijoint[i].rotate[2];
-        model.bindPose[i].rotation.w = ijoint[i].rotate[3];
+        transformData[i].rotation.x = ijoint[i].rotate[0];
+        transformData[i].rotation.y = ijoint[i].rotate[1];
+        transformData[i].rotation.z = ijoint[i].rotate[2];
+        transformData[i].rotation.w = ijoint[i].rotate[3];
 
-        model.bindPose[i].scale.x = ijoint[i].scale[0];
-        model.bindPose[i].scale.y = ijoint[i].scale[1];
-        model.bindPose[i].scale.z = ijoint[i].scale[2];
+        transformData[i].scale.x = ijoint[i].scale[0];
+        transformData[i].scale.y = ijoint[i].scale[1];
+        transformData[i].scale.z = ijoint[i].scale[2];
+// transformData into matrices
+        model.bindPose[i] = MatrixFromTransform(transformData[i]);
+
     }
 
     // Build bind pose from parent joints
@@ -3218,10 +3286,7 @@ Model LoadIQM(const char *fileName)
     {
         if (model.bones[i].parent >= 0)
         {
-            model.bindPose[i].rotation = QuaternionMultiply(model.bindPose[model.bones[i].parent].rotation, model.bindPose[i].rotation);
-            model.bindPose[i].translation = Vector3RotateByQuaternion(model.bindPose[i].translation, model.bindPose[model.bones[i].parent].rotation);
-            model.bindPose[i].translation = Vector3Add(model.bindPose[i].translation, model.bindPose[model.bones[i].parent].translation);
-            model.bindPose[i].scale = Vector3MultiplyV(model.bindPose[i].scale, model.bindPose[model.bones[i].parent].scale);
+            model.bindPose[i] = MatrixMultiply(model.bindPose[i],model.bindPose[model.bones[i].parent]);
         }
     }
 
@@ -3235,6 +3300,7 @@ Model LoadIQM(const char *fileName)
     free(blendi);
     free(blendw);
     free(ijoint);
+    free(transformData);
 
     return model;
 }
@@ -3265,7 +3331,7 @@ Model LoadGLTF(const char *fileName)
     fclose(gltfFile);
 
     // glTF data loading
-    cgltf_options options = {0};
+    cgltf_options options = { 0 };
     cgltf_data *data;
     cgltf_result result = cgltf_parse(&options, buffer, size, &data);
 
@@ -3273,11 +3339,33 @@ Model LoadGLTF(const char *fileName)
 
     if (result == cgltf_result_success)
     {
-        // printf("Type: %u\n", data.file_type);
-        // printf("Version: %d\n", data.version);
-        // printf("Meshes: %lu\n", data.meshes_count);
+        TraceLog(LOG_INFO, "[%s][%s] Model meshes/materials: %i/%i", (data->file_type == 2)? "glb" : "gltf", data->meshes_count, data->materials_count);
 
-        // TODO: Process glTF data and map to model
+        // Read data buffers
+        result = cgltf_load_buffers(&options, data, fileName);
+
+        // Process glTF data and map to model
+        model.meshCount = data->meshes_count;
+        model.meshes = malloc(model.meshCount*sizeof(Mesh));
+        
+        for (int i = 0; i < model.meshCount; i++)
+        {
+            // NOTE: Only support meshes defined by triangle primitives
+            //if (data->meshes[i].primitives[n].type == cgltf_primitive_type_triangles)
+            {
+                // data.meshes[i].name not used
+                model.meshes[i].vertexCount = data->meshes[i].primitives_count*3;
+                model.meshes[i].triangleCount = data->meshes[i].primitives_count;
+                // data.meshes[i].weights not used (array of weights to be applied to the Morph Targets)
+
+                model.meshes[i].vertices = malloc(sizeof(float)*model.meshes[i].vertexCount*3);       // Default vertex positions
+                model.meshes[i].normals = malloc(sizeof(float)*model.meshes[i].vertexCount*3);        // Default vertex normals
+                model.meshes[i].texcoords = malloc(sizeof(float)*model.meshes[i].vertexCount*2);      // Default vertex texcoords
+
+                model.meshes[i].indices = malloc(sizeof(unsigned short)*model.meshes[i].triangleCount*3);
+
+            }
+        }
 
         // NOTE: data.buffers[] should be loaded to model.meshes and data.images[] should be loaded to model.materials
         // Use buffers[n].uri and images[n].uri... or use cgltf_load_buffers(&options, data, fileName);
