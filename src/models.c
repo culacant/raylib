@@ -1127,78 +1127,21 @@ ModelAnimation *LoadModelAnimations(const char *filename, int *animCount)
 
 // Update model animated vertex data (positions and normals) for a given frame
 // NOTE: Updated data is uploaded to GPU
+#define MAX_BONE_CNT 100
 void UpdateModelAnimation(Model model, ModelAnimation anim, int frame)
 {
     if (frame >= anim.frameCount) frame = frame%anim.frameCount;
 
-    for (int m = 0; m < model.meshCount; m++)
+    int boneUniformLoc = 0;
+    Matrix finalMatrix = { 0 };
+    for(int i = 0; i < model.boneCount; i++)
     {
-        Vector3 animVertex = { 0 };
-        Vector3 animNormal = { 0 };
-
-        Matrix inMatrix = { 0 };
-        Matrix outMatrix = { 0 };
-
-        int vCounter = 0;
-        int boneCounter = 0;
-        int boneId = 0;
-        float weight = 0.0f;
-
-        for (int i = 0; i < model.meshes[m].vertexCount; i++)
+        finalMatrix = MatrixMultiply(MatrixInvert(model.bindPose[i]),anim.framePoses[frame][i]);
+        for (int m = 0; m < model.materialCount; m++)
         {
-            model.meshes[m].animVertices[vCounter] = 0;
-            model.meshes[m].animVertices[vCounter + 1] = 0;
-            model.meshes[m].animVertices[vCounter + 2] = 0;
-            model.meshes[m].animNormals[vCounter] = 0;
-            model.meshes[m].animNormals[vCounter + 1] = 0;
-            model.meshes[m].animNormals[vCounter + 2] = 0;
-
-            for(int w=0;w<4;w++)
-            {
-                boneId = model.meshes[m].boneIds[boneCounter+w];
-                weight = model.meshes[m].boneWeights[boneCounter+w];
-                if(weight > 0.0f)
-                {
-                    inMatrix = model.bindPose[boneId];
-                    outMatrix = anim.framePoses[frame][boneId];
-                    outMatrix = MatrixMultiply(outMatrix,MatrixInvert(inMatrix));
-
-                    // Vertices processing
-                    // NOTE: We use meshes.vertices (default vertex position) to calculate meshes.animVertices (animated vertex position)
-                    animVertex = (Vector3){ model.meshes[m].vertices[vCounter], model.meshes[m].vertices[vCounter + 1], model.meshes[m].vertices[vCounter + 2] };
-/*
-                    animVertex = Vector3MultiplyV(animVertex, outScale);
-                    animVertex = Vector3Subtract(animVertex, inTranslation);
-                    animVertex = Vector3RotateByQuaternion(animVertex, QuaternionMultiply(outRotation, QuaternionInvert(inRotation)));
-                    animVertex = Vector3Add(animVertex, outTranslation);
-*/
-                    animVertex = Vector3Transform(animVertex, outMatrix);
-
-                    model.meshes[m].animVertices[vCounter] += animVertex.x*weight;
-                    model.meshes[m].animVertices[vCounter + 1] += animVertex.y*weight;
-                    model.meshes[m].animVertices[vCounter + 2] += animVertex.z*weight;
-
-                    // Normals processing
-                    // NOTE: We use meshes.baseNormals (default normal) to calculate meshes.normals (animated normals)
-                    animNormal = (Vector3){ model.meshes[m].normals[vCounter], model.meshes[m].normals[vCounter + 1], model.meshes[m].normals[vCounter + 2] };
-/*
-                    animNormal = Vector3RotateByQuaternion(animNormal, QuaternionMultiply(outRotation, QuaternionInvert(inRotation)));
-*/
-                    animNormal = Vector3Transform(animNormal, inMatrix);
-
-                    model.meshes[m].animNormals[vCounter] += animNormal.x*weight;
-                    model.meshes[m].animNormals[vCounter + 1] += animNormal.y*weight;
-                    model.meshes[m].animNormals[vCounter + 2] += animNormal.z*weight;
-                }
-            }
-            vCounter += 3;
-
-            boneCounter += 4;
+            boneUniformLoc = GetShaderLocation(model.materials[m].shader,FormatText("bindPose[%i]",i));
+            SetShaderValueMatrix(model.materials[m].shader, boneUniformLoc, finalMatrix);
         }
-
-        // Upload new vertex data to GPU for model drawing
-        rlUpdateBuffer(model.meshes[m].vboId[0], model.meshes[m].animVertices, model.meshes[m].vertexCount*3*sizeof(float));    // Update vertex position
-        rlUpdateBuffer(model.meshes[m].vboId[2], model.meshes[m].animVertices, model.meshes[m].vertexCount*3*sizeof(float));    // Update vertex normals
     }
 }
 

@@ -520,6 +520,63 @@ struct android_app *GetAndroidApp(void)
 }
 #endif
 
+Matrix MatrixFromtransform(Transform transform)
+{
+    Matrix result = {0};
+    float x2 = transform.rotation.x+transform.rotation.x;
+    float y2 = transform.rotation.y+transform.rotation.y;
+    float z2 = transform.rotation.z+transform.rotation.z;
+
+    float xx2 = transform.rotation.x*x2;
+    float yy2 = transform.rotation.y*y2;
+    float zz2 = transform.rotation.z*z2;
+
+    float yz2 = transform.rotation.y*z2;
+    float wx2 = transform.rotation.w*x2;
+
+    float xy2 = transform.rotation.x*y2;
+    float wz2 = transform.rotation.w*z2;
+
+    float xz2 = transform.rotation.x*z2;
+    float wy2 = transform.rotation.w*y2;
+
+    result.m0   = 1 - yy2 - zz2;
+    result.m5   = 1 - xx2 - zz2;
+    result.m10  = 1 - xx2 - yy2;
+
+    result.m6   = yz2 + wx2;
+    result.m9   = yz2 - wx2;
+
+    result.m1   = xy2 + wz2;
+    result.m4   = xy2 - wz2;
+
+    result.m8   = xz2 + wy2;
+    result.m2   = xz2 - wy2;
+
+    result.m0   *=  transform.scale.x;
+    result.m1   *=  transform.scale.x;
+    result.m3   *=  transform.scale.x;
+
+    result.m4   *=  transform.scale.y;
+    result.m5   *=  transform.scale.y;
+    result.m6   *=  transform.scale.y;
+
+    result.m8   *=  transform.scale.z;
+    result.m9   *=  transform.scale.z;
+    result.m10  *=  transform.scale.z;
+
+    result.m12  = transform.translation.x;
+    result.m13  = transform.translation.y;
+    result.m14  = transform.translation.z;
+
+    result.m3   = 0.0f;
+    result.m7   = 0.0f;
+    result.m11  = 0.0f;
+    result.m15  = 1.0f;
+
+    return result;
+}
+
 // Initialize window and OpenGL context
 // NOTE: data parameter could be used to pass any kind of required data to the initialization
 void InitWindow(int width, int height, const char *title)

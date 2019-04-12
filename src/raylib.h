@@ -87,6 +87,13 @@
 //----------------------------------------------------------------------------------
 // Some basic Defines
 //----------------------------------------------------------------------------------
+// Boolean type
+#if defined(__STDC__) && __STDC_VERSION__ >= 199901L
+    #include <stdbool.h>
+#elif !defined(__cplusplus) && !defined(bool)
+    typedef enum { false, true } bool;
+#endif
+
 #ifndef PI
     #define PI 3.14159265358979323846f
 #endif
@@ -310,7 +317,7 @@ typedef struct Mesh {
 
     // OpenGL identifiers
     unsigned int vaoId;     // OpenGL Vertex Array Object id
-    unsigned int vboId[7];  // OpenGL Vertex Buffer Objects id (default vertex data)
+    unsigned int vboId[9];  // OpenGL Vertex Buffer Objects id (default vertex data)
 } Mesh;
 
 // Shader type (generic)
@@ -360,7 +367,7 @@ typedef struct Model {
     // Animation data
     int boneCount;          // Number of bones
     BoneInfo *bones;        // Bones information (skeleton)
-    Transform *bindPose;    // Bones base transformation (pose)
+    Matrix *bindPose;    // Bones base transformation (pose)
 } Model;
 
 // Model animation
@@ -369,7 +376,7 @@ typedef struct ModelAnimation {
     BoneInfo *bones;        // Bones information (skeleton)
 
     int frameCount;         // Number of animation frames
-    Transform **framePoses; // Poses array by frame
+    Matrix **framePoses; // Poses array by frame
 } ModelAnimation;
 
 // Ray type (useful for raycast)
@@ -449,13 +456,6 @@ typedef struct VrStereoConfig {
 //----------------------------------------------------------------------------------
 // Enumerators Definition
 //----------------------------------------------------------------------------------
-// Boolean type
-#if defined(__STDC__) && __STDC_VERSION__ >= 199901L
-    #include <stdbool.h>
-#elif !defined(__cplusplus) && !defined(bool)
-    typedef enum { false, true } bool;
-#endif
-
 // System config flags
 // NOTE: Used for bit masks
 typedef enum {
@@ -727,6 +727,8 @@ typedef enum {
 
 #define LOC_MAP_DIFFUSE      LOC_MAP_ALBEDO
 #define LOC_MAP_SPECULAR     LOC_MAP_METALNESS
+#define LOC_VERTEX_WEIGHT   7
+#define LOC_VERTEX_BONE     8
 
 // Shader uniform data types
 typedef enum {
@@ -738,7 +740,8 @@ typedef enum {
     UNIFORM_IVEC2,
     UNIFORM_IVEC3,
     UNIFORM_IVEC4,
-    UNIFORM_SAMPLER2D
+    UNIFORM_SAMPLER2D,
+    UNIFORM_MATRIX4
 } ShaderUniformDataType;
 
 // Material map type
@@ -892,6 +895,7 @@ extern "C" {            // Prevents name mangling of functions
 //------------------------------------------------------------------------------------
 // Window and Graphics Device Functions (Module: core)
 //------------------------------------------------------------------------------------
+RLAPI Matrix MatrixFromTransform(Transform transform);
 
 // Window-related functions
 RLAPI void InitWindow(int width, int height, const char *title);  // Initialize window and OpenGL context
