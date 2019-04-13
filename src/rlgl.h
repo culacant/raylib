@@ -371,6 +371,12 @@ typedef unsigned char byte;
         UNIFORM_IVEC4,
         UNIFORM_SAMPLER2D
     } ShaderUniformDataType;
+    
+    //Shader attribute data types
+    typedef enum {    
+        ATTRIBUTE_FLOAT = 0,
+        ATTRIBUTE_INT
+    } ShaderAttributeDataType;
 
     #define LOC_MAP_DIFFUSE      LOC_MAP_ALBEDO
     #define LOC_MAP_SPECULAR     LOC_MAP_METALNESS
@@ -458,7 +464,7 @@ void rlDeleteBuffers(unsigned int id);                  // Unload vertex data (V
 void rlClearColor(byte r, byte g, byte b, byte a);      // Clear color buffer with color
 void rlClearScreenBuffers(void);                        // Clear used screen buffers (color and depth)
 void rlUpdateBuffer(int bufferId, void *data, int dataSize); // Update GPU buffer with new data
-unsigned int rlLoadAttribBuffer(unsigned int vaoId, int shaderLoc, void *buffer, int size, bool dynamic);   // Load a new attributes buffer
+unsigned int rlLoadAttribBuffer(unsigned int vaoId, int shaderLoc, int size, int attribType, void *buffer, int count, bool dynamic);   // Load a new attributes buffer, int count, bool dynamic);
 
 //------------------------------------------------------------------------------------
 // Functions Declaration - rlgl functionality
@@ -2528,20 +2534,6 @@ void rlLoadMesh(Mesh *mesh, bool dynamic)
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->vboId[6]);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned short)*mesh->triangleCount*3, mesh->indices, GL_STATIC_DRAW);
     }
-    if (mesh->boneWeights != NULL)
-    {
-        glGenBuffers(1, &mesh->vboId[LOC_VERTEX_WEIGHT]);
-        glBindBuffer(GL_ARRAY_BUFFER, mesh->vboId[LOC_VERTEX_WEIGHT]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(float)*4*mesh->vertexCount, mesh->boneWeights, drawHint);
-        glVertexAttribPointer(LOC_VERTEX_WEIGHT, 4, GL_FLOAT, 0, 0, 0);
-        glEnableVertexAttribArray(LOC_VERTEX_WEIGHT);
-
-        glGenBuffers(1, &mesh->vboId[LOC_VERTEX_BONE]);
-        glBindBuffer(GL_ARRAY_BUFFER, mesh->vboId[LOC_VERTEX_BONE]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(int)*4*mesh->vertexCount, mesh->boneIds, drawHint);
-        glVertexAttribIPointer(LOC_VERTEX_BONE, 4, GL_INT, 0, 0);
-        glEnableVertexAttribArray(LOC_VERTEX_BONE);
-    }
     if (vaoSupported)
     {
         if (mesh->vaoId > 0) TraceLog(LOG_INFO, "[VAO ID %i] Mesh uploaded successfully to VRAM (GPU)", mesh->vaoId);
@@ -2555,24 +2547,46 @@ void rlLoadMesh(Mesh *mesh, bool dynamic)
 }
 
 // Load a new attributes buffer
-unsigned int rlLoadAttribBuffer(unsigned int vaoId, int shaderLoc, void *buffer, int size, bool dynamic)
+unsigned int rlLoadAttribBuffer(unsigned int vaoId, int shaderLoc, int size, int attribType, void *buffer, int count, bool dynamic)
 {
     unsigned int id = 0;
     
 #if defined(GRAPHICS_API_OPENGL_33) || defined(GRAPHICS_API_OPENGL_ES2)
     int drawHint = GL_STATIC_DRAW;
     if (dynamic) drawHint = GL_DYNAMIC_DRAW;
-    
+
+    GLenum type = 0;
+
     if (vaoSupported) glBindVertexArray(vaoId);
     
     glGenBuffers(1, &id);
     glBindBuffer(GL_ARRAY_BUFFER, id);
-    glBufferData(GL_ARRAY_BUFFER, size, buffer, drawHint);
-    glVertexAttribPointer(shaderLoc, 2, GL_FLOAT, 0, 0, 0);
+    glBufferData(GL_ARRAY_BUFFER, count, buffer, drawHint);
+
+    switch(attribType)
+    {
+        case ATTRIBUTE_FLOAT:
+            type = GL_FLOAT;
+            glVertexAttribPointer(shaderLoc, size, type, 0, 0, 0);
+            break;
+        case ATTRIBUTE_INT:
+            type = GL_INT;
+            glVertexAttribIPointer(shaderLoc, size, type, 0, 0);
+            break;
+        default:
+            TraceLog(LOG_WARNING, "Unknown attribute type, defaulting to GL_FLOAT");
+            type = GL_FLOAT;
+            break;
+    }
+    
     glEnableVertexAttribArray(shaderLoc);
     
     if (vaoSupported) glBindVertexArray(0);
 #endif
+    if(id)
+        TraceLog(LOG_INFO, "Vertex attributes loaded succesfully");
+    else
+        TraceLog(LOG_WARNING, "Vertex attributes could not be loaded");
 
     return id;
 }

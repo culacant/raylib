@@ -744,6 +744,12 @@ typedef enum {
     UNIFORM_MATRIX4
 } ShaderUniformDataType;
 
+//Shader attribute data types
+typedef enum {
+    ATTRIBUTE_FLOAT = 0,
+    ATTRIBUTE_INT
+} ShaderAttributeDataType;
+
 // Material map type
 typedef enum {
     MAP_ALBEDO    = 0,       // MAP_DIFFUSE

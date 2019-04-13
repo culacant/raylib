@@ -695,7 +695,15 @@ Model LoadModel(const char *fileName)
     else
     {
         // Upload vertex data to GPU (static mesh)
-        for (int i = 0; i < model.meshCount; i++) rlLoadMesh(&model.meshes[i], false);
+        for (int i = 0; i < model.meshCount; i++)
+        {
+            rlLoadMesh(&model.meshes[i], false);
+            if(model.meshes[i].boneIds)
+            {
+                model.meshes[i].vboId[LOC_VERTEX_BONE] = rlLoadAttribBuffer(model.meshes[i].vaoId, LOC_VERTEX_BONE, 4, ATTRIBUTE_INT, model.meshes[i].boneIds, model.meshes[i].vertexCount*4*sizeof(int), false);
+                model.meshes[i].vboId[LOC_VERTEX_WEIGHT] = rlLoadAttribBuffer(model.meshes[i].vaoId, LOC_VERTEX_WEIGHT, 4,ATTRIBUTE_FLOAT, model.meshes[i].boneWeights, model.meshes[i].vertexCount*4*sizeof(float), false);
+            }
+        }
     }
 
     if (model.materialCount == 0)
@@ -2325,7 +2333,7 @@ void MeshTangents(Mesh *mesh)
     free(tan2);
     
     // Load a new tangent attributes buffer
-    mesh->vboId[LOC_VERTEX_TANGENT] = rlLoadAttribBuffer(mesh->vaoId, LOC_VERTEX_TANGENT, mesh->tangents, mesh->vertexCount*4*sizeof(float), false);
+    mesh->vboId[LOC_VERTEX_TANGENT] = rlLoadAttribBuffer(mesh->vaoId, LOC_VERTEX_TANGENT, 2,ATTRIBUTE_FLOAT,mesh->tangents, mesh->vertexCount*4*sizeof(float), false);
 
     TraceLog(LOG_INFO, "Tangents computed for mesh");
 }
